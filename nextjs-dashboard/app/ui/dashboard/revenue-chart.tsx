@@ -1,16 +1,17 @@
+// /app/ui/dashboard/revenue-chart.tsx
 import { CalendarIcon } from '@heroicons/react/24/outline';
 import { lusitana } from '@/app/ui/fonts';
+import { fetchRevenue } from '@/app/lib/data';
 
 interface Revenue {
   month: string;
   revenue: number;
 }
 
-export default async function RevenueChart({
-  revenue,
-}: {
-  revenue: Revenue[];
-}) {
+export default async function RevenueChart() {
+  // 🔹 Ahora obtenemos los datos directamente desde aquí
+  const revenue: Revenue[] = await fetchRevenue();
+
   const chartHeight = 350;
 
   if (!revenue || revenue.length === 0) {
@@ -27,7 +28,7 @@ export default async function RevenueChart({
   );
 
   return (
-    <div className="w-full md:col-span-4">
+    <div className="w-full md:col-span-4 lg:col-span-5">
       <h2 className={`${lusitana.className} mb-4 text-xl md:text-2xl`}>
         Ingresos Recientes
       </h2>

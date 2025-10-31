@@ -1,7 +1,9 @@
+// /app/ui/dashboard/latest-invoices.tsx
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import Image from 'next/image';
 import { lusitana } from '@/app/ui/fonts';
+import { fetchLatestInvoices } from '@/app/lib/data';
 
 interface LatestInvoice {
   id: number;
@@ -11,13 +13,12 @@ interface LatestInvoice {
   image_url?: string;
 }
 
-export default async function LatestInvoices({
-  latestInvoices,
-}: {
-  latestInvoices: LatestInvoice[];
-}) {
+export default async function LatestInvoices() {
+  // 🔹 Ahora obtiene sus datos directamente
+  const latestInvoices: LatestInvoice[] = await fetchLatestInvoices();
+
   return (
-    <div className="flex w-full flex-col md:col-span-4">
+    <div className="flex w-full flex-col md:col-span-2 lg:col-span-3">
       <h2 className={`${lusitana.className} mb-4 text-xl md:text-2xl`}>
         Últimas Facturas
       </h2>
@@ -64,7 +65,9 @@ export default async function LatestInvoices({
         )}
         <div className="flex items-center pb-2 pt-6">
           <ArrowPathIcon className="h-5 w-5 text-gray-500" />
-          <h3 className="ml-2 text-sm text-gray-500 ">Actualizado recientemente</h3>
+          <h3 className="ml-2 text-sm text-gray-500 ">
+            Actualizado recientemente
+          </h3>
         </div>
       </div>
     </div>
