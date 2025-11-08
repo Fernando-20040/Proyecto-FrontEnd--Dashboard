@@ -1,98 +1,87 @@
-'use client';
+// app/ui/login-form.tsx
+"use client";
 
-import { lusitana } from '@/app/ui/fonts';
-import {
-  AtSymbolIcon,
-  KeyIcon,
-  ExclamationCircleIcon,
-} from '@heroicons/react/24/outline';
-import { ArrowRightIcon } from '@heroicons/react/20/solid';
-import { Button } from '@/app/ui/button';
-import { useState, useTransition } from 'react';
-import { authenticate } from '@/app/lib/actions';
-import { useSearchParams } from 'next/navigation';
+import { FormEvent, useState } from "react";
+import { login } from "../lib/auth";
+import { useRouter } from "next/navigation";
 
 export default function LoginForm() {
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
-  const [isPending, startTransition] = useTransition();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const router = useRouter();
+  const [username, setUsername] = useState("admin"); // opcional, para pruebas
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(formData: FormData) {
-    setErrorMessage(null);
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
 
-    startTransition(async () => {
-      const result = await authenticate(undefined, formData);
-      if (typeof result === 'string') {
-        setErrorMessage(result);
+    try {
+      const session = await login(username, password); // llama a /auth/login backend
+      // Redirigir según rol
+      if (session.rol === "ADMIN") {
+        router.push("/dashboard");
+      } else {
+        router.push("/dashboard/pedidos");
       }
-    });
+    } catch (err: any) {
+      setError(err.message || "Error al iniciar sesión");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <form action={handleSubmit} className="space-y-3">
-      <div className="flex-1 rounded-lg bg-gray-50 px-6 pb-4 pt-8">
-        <h1 className={`${lusitana.className} mb-3 text-2xl`}>
-          Please log in to continue.
-        </h1>
-        <div className="w-full">
-          <div>
-            <label
-              className="mb-3 mt-5 block text-xs font-medium text-gray-900"
-              htmlFor="email"
-            >
-              Email
-            </label>
-            <div className="relative">
-              <input
-                className="peer block w-full rounded-md border border-gray-200 py-[9px] pl-10 text-sm outline-2 placeholder:text-gray-500"
-                id="email"
-                type="email"
-                name="email"
-                placeholder="Enter your email address"
-                required
-              />
-              <AtSymbolIcon className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-500 peer-focus:text-gray-900" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <label
-              className="mb-3 mt-5 block text-xs font-medium text-gray-900"
-              htmlFor="password"
-            >
-              Password
-            </label>
-            <div className="relative">
-              <input
-                className="peer block w-full rounded-md border border-gray-200 py-[9px] pl-10 text-sm outline-2 placeholder:text-gray-500"
-                id="password"
-                type="password"
-                name="password"
-                placeholder="Enter password"
-                required
-                minLength={6}
-              />
-              <KeyIcon className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-500 peer-focus:text-gray-900" />
-            </div>
-          </div>
-        </div>
-        <input type="hidden" name="redirectTo" value={callbackUrl} />
-        <Button className="mt-4 w-full" aria-disabled={isPending}>
-          Log in <ArrowRightIcon className="ml-auto h-5 w-5 text-gray-50" />
-        </Button>
-        <div
-          className="flex h-8 items-end space-x-1"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {errorMessage && (
-            <>
-              <ExclamationCircleIcon className="h-5 w-5 text-red-500" />
-              <p className="text-sm text-red-500">{errorMessage}</p>
-            </>
-          )}
-        </div>
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-lg bg-white p-6 shadow-md"
+    >
+      <h1 className="text-xl font-semibold text-center">Iniciar sesión</h1>
+
+      <div>
+        <label htmlFor="username" className="block text-sm font-medium mb-1">
+          Usuario
+        </label>
+        <input
+          id="username"
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="w-full rounded border px-3 py-2 text-sm"
+          placeholder="Tu usuario"
+          required
+        />
       </div>
+
+      <div>
+        <label htmlFor="password" className="block text-sm font-medium mb-1">
+          Contraseña
+        </label>
+        <input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full rounded border px-3 py-2 text-sm"
+          placeholder="••••••••"
+          required
+        />
+      </div>
+
+      {error && (
+        <p className="text-sm text-center text-red-600">
+          {error}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        className="w-full rounded bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-70"
+        disabled={loading}
+      >
+        {loading ? "Entrando..." : "Entrar"}
+      </button>
     </form>
   );
 }
