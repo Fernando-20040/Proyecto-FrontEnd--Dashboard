@@ -1,17 +1,31 @@
-// lib/api.ts
-
 /* ========= CONFIGURACIÓN BASE ========= */
 const API_CLIENTES =
   process.env.NEXT_PUBLIC_API_CLIENTES || "http://localhost:8080";
 const API_PROVEEDORES =
   process.env.NEXT_PUBLIC_API_PROVEEDORES || "http://localhost:8081";
 
+/**
+ * Manejo seguro de respuestas del backend.
+ * Evita errores al parsear JSON vacío (ej: 201 Created sin cuerpo).
+ */
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Error ${res.status}: ${text || res.statusText}`);
   }
-  return res.json();
+
+  const text = await res.text(); // 👈 se lee como texto
+  if (!text) {
+    // sin body (p. ej. 201/204)
+    return undefined as unknown as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch (err) {
+    console.error("⚠️ Respuesta no JSON del backend:", text);
+    throw new Error("Respuesta del servidor no es JSON válido");
+  }
 }
 
 /* ========= CLIENTES ========= */
@@ -37,7 +51,6 @@ export async function createCliente(cliente: Cliente): Promise<Cliente> {
   return handleResponse<Cliente>(res);
 }
 
-// 🔹 Actualizar cliente
 export async function updateCliente(
   id: number,
   cliente: Cliente
@@ -50,7 +63,6 @@ export async function updateCliente(
   return handleResponse<Cliente>(res);
 }
 
-// 🔹 Eliminar cliente
 export async function deleteCliente(id: number): Promise<void> {
   const res = await fetch(`${API_CLIENTES}/clientes/${id}`, {
     method: "DELETE",
@@ -58,7 +70,6 @@ export async function deleteCliente(id: number): Promise<void> {
   if (!res.ok) throw new Error(`Error eliminando cliente ID ${id}`);
 }
 
-// 🔹 Obtener detalle de cliente
 export async function getClienteById(id: number): Promise<Cliente> {
   const res = await fetch(`${API_CLIENTES}/clientes/${id}`, {
     cache: "no-store",
@@ -70,42 +81,53 @@ export async function getClienteById(id: number): Promise<Cliente> {
 export interface Producto {
   nombre: string;
   precio: number;
+  cantidad: number; 
 }
 
-// 🔹 Tipo de estado de pedido
 export type EstadoPedido = "PENDIENTE" | "FACTURADO" | "ANULADO";
 
 export interface Pedido {
   id?: number;
   clienteId: number;
-  nombre?: string; // nombre / descripción / dirección / observación
+  nombre?: string;
   productos: Producto[];
+  subtotal?: number;
+  iva?: number;
+  descuento_porcentaje?: number;
+  descuento?: number;
   total?: number;
-  estado?: EstadoPedido; // campo nuevo tipado
+  estado?: EstadoPedido;
 }
 
-// 🔹 Obtener pedidos
 export async function getPedidos(): Promise<Pedido[]> {
   const res = await fetch(`${API_CLIENTES}/pedidos`, { cache: "no-store" });
   return handleResponse<Pedido[]>(res);
 }
 
-// 🔹 Crear pedido
+export async function getPedidosPendientes(clienteId: number): Promise<Pedido[]> {
+  const res = await fetch(`${API_CLIENTES}/pedidos/cliente/${clienteId}/pendientes`, {
+    cache: "no-store",
+  });
+  return handleResponse<Pedido[]>(res);
+}
+
 export async function createPedido(pedido: Pedido): Promise<Pedido> {
   const res = await fetch(`${API_CLIENTES}/pedidos`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       clienteId: pedido.clienteId,
-      nombre: pedido.nombre, // descripción o dirección del pedido
-      productos: pedido.productos,
-      // estado no es necesario: backend lo pone "PENDIENTE"
+      nombre: pedido.nombre,
+      productos: pedido.productos.map((p) => ({
+        nombre: p.nombre,
+        precio: p.precio,
+        cantidad: p.cantidad ?? 1, 
+      })),
     }),
   });
   return handleResponse<Pedido>(res);
 }
 
-// 🔹 Eliminar pedido
 export async function deletePedido(id: number): Promise<void> {
   const res = await fetch(`${API_CLIENTES}/pedidos/${id}`, {
     method: "DELETE",
@@ -113,17 +135,13 @@ export async function deletePedido(id: number): Promise<void> {
   if (!res.ok) throw new Error(`Error eliminando pedido ID ${id}`);
 }
 
-// 🔹 Cambiar estado del pedido (PENDIENTE, FACTURADO, ANULADO)
 export async function updateEstadoPedido(
   id: number,
   estado: EstadoPedido
 ): Promise<Pedido> {
-  const res = await fetch(
-    `${API_CLIENTES}/pedidos/${id}/estado?estado=${estado}`,
-    {
-      method: "PUT",
-    }
-  );
+  const res = await fetch(`${API_CLIENTES}/pedidos/${id}/estado?estado=${estado}`, {
+    method: "PUT",
+  });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Error cambiando estado del pedido ${id}: ${text}`);
@@ -147,9 +165,7 @@ export async function getProveedores(): Promise<Proveedor[]> {
   return handleResponse<Proveedor[]>(res);
 }
 
-export async function createProveedor(
-  proveedor: Proveedor
-): Promise<Proveedor> {
+export async function createProveedor(proveedor: Proveedor): Promise<Proveedor> {
   const res = await fetch(`${API_PROVEEDORES}/proveedores`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -158,7 +174,6 @@ export async function createProveedor(
   return handleResponse<Proveedor>(res);
 }
 
-// 🔹 Actualizar proveedor
 export async function updateProveedor(
   id: number,
   proveedor: Proveedor
@@ -171,7 +186,6 @@ export async function updateProveedor(
   return handleResponse<Proveedor>(res);
 }
 
-// 🔹 Eliminar proveedor
 export async function deleteProveedor(id: number): Promise<void> {
   const res = await fetch(`${API_PROVEEDORES}/proveedores/${id}`, {
     method: "DELETE",
@@ -180,19 +194,22 @@ export async function deleteProveedor(id: number): Promise<void> {
 }
 
 /* ========= FACTURAS ========= */
-
-// compatible con backend nuevo (pedidoId) y el viejo (id/nombre)
 export interface PedidoReferencia {
-  id?: number;          // compatibilidad vieja
-  pedidoId?: number;    // backend nuevo
+  id?: number;
+  pedidoId?: number;
   total: number;
-  nombre?: string;      // opcional, por si en el futuro lo mandas
+  nombre?: string;
 }
 
 export interface Factura {
   id?: number;
   proveedorId: number;
   monto: number;
+  subtotal?: number;
+  iva?: number;
+  descuento_porcentaje?: number;
+  descuento?: number;
+  total_factura?: number;
   fecha?: string;
   estado?: "ACTIVA" | "ANULADA";
   motivoAnulacion?: string | null;
@@ -204,41 +221,48 @@ export async function getFacturas(): Promise<Factura[]> {
   return handleResponse<Factura[]>(res);
 }
 
-export async function createFactura(factura: {
+export interface FacturaInput {
   proveedorId: number;
-  monto: number;
-}): Promise<Factura> {
+  pedidosIds?: number[];
+  montoManual?: number;
+  descuentoPorcentaje?: number;
+}
+
+export async function createFactura(input: FacturaInput): Promise<Factura | undefined> {
   const res = await fetch(`${API_PROVEEDORES}/facturas`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(factura),
+    body: JSON.stringify(input),
   });
-  return handleResponse<Factura>(res);
+  return handleResponse<Factura | undefined>(res);
 }
 
-// 🔹 Detalle de factura
 export async function getFacturaDetalle(id: number): Promise<Factura> {
-  const res = await fetch(
-    `${API_PROVEEDORES}/facturas/detalle/${id}`,
-    { cache: "no-store" }
-  );
-  return handleResponse<Factura>(res);
+  const res = await fetch(`${API_PROVEEDORES}/facturas/detalle/${id}`, {
+    cache: "no-store",
+  });
+
+  const factura = await handleResponse<Factura>(res);
+
+  // 🔥 Aseguramos que pedidos siempre sea un array
+  return {
+    ...factura,
+    pedidos: Array.isArray(factura.pedidos) ? factura.pedidos : [],
+  };
 }
 
-// 🔹 Anular factura con motivo
+
 export async function anularFactura(
   id: number,
   motivo: string
 ): Promise<Factura> {
   const params = new URLSearchParams({ motivo });
-  const res = await fetch(
-    `${API_PROVEEDORES}/facturas/${id}/anular?${params.toString()}`,
-    { method: "PUT" }
-  );
+  const res = await fetch(`${API_PROVEEDORES}/facturas/${id}/anular?${params.toString()}`, {
+    method: "PUT",
+  });
   return handleResponse<Factura>(res);
 }
 
-// (Opcional) Si tu backend NO tiene delete, no uses esta función
 export async function deleteFactura(id: number): Promise<void> {
   const res = await fetch(`${API_PROVEEDORES}/facturas/${id}`, {
     method: "DELETE",
