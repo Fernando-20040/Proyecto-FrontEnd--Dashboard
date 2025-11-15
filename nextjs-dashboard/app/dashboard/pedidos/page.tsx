@@ -178,7 +178,7 @@ export default function PedidosPage() {
           {/* Nombre / descripción / dirección */}
           <div>
             <label htmlFor="nombrePedido" className="block text-sm mb-1">
-              Nombre / descripción del pedido
+              Direccion del pedido
             </label>
             <input
               id="nombrePedido"
@@ -282,7 +282,7 @@ export default function PedidosPage() {
               <tr className="border-b bg-gray-50">
                 <th className="p-2 text-left text-sm">ID</th>
                 <th className="p-2 text-left text-sm">Cliente</th>
-                <th className="p-2 text-left text-sm">Nombre pedido</th>
+                <th className="p-2 text-left text-sm">Direccion pedido</th>
                 <th className="p-2 text-left text-sm">Productos</th>
                 <th className="p-2 text-left text-sm">Detalles</th>
                 <th className="p-2 text-left text-sm">Estado</th>
